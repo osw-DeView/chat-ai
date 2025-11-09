@@ -1,4 +1,3 @@
-import random
 from fastapi import APIRouter
 
 from models.interview_models import (
@@ -8,7 +7,7 @@ from models.interview_models import (
 )
 
 from services.gemini_service import generate_tail_question, evaluate_conversation
-from services.initial_questions import INITIAL_CS_QUESTIONS
+from services.initial_questions import get_random_question
 
 router = APIRouter(
     prefix="/interview",
@@ -18,9 +17,9 @@ router = APIRouter(
 @router.post("/start", response_model=InterviewStartResponse)
 async def start_interview(request: InterviewStartRequest):
     """
-    면접 유형(CS)을 받아 미리 정의된 초기 질문 중 하나를 무작위로 반환합니다.
+    면접 유형(CS)을 받아 CSV 파일에서 읽어온 초기 질문 중 하나를 무작위로 반환합니다.
     """
-    question = random.choice(INITIAL_CS_QUESTIONS)
+    question = get_random_question()
     return InterviewStartResponse(response=question)
 
 
