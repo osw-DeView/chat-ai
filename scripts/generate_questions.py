@@ -2,33 +2,41 @@ import os
 import csv
 import time
 import re
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Set
 
 import google.generativeai as genai
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+# .env 파일에서 환경 변수를 로드합니다.
 load_dotenv()
 
+# API 키를 환경 변수에서 가져옵니다.
 API_KEY = os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     raise ValueError("GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.")
 genai.configure(api_key=API_KEY)
 
+# Gemini 모델 설정을 정의합니다.
 generation_config = {"temperature": 0.7}
 model = genai.GenerativeModel(
+    # 안정성과 호환성이 검증된 'gemini-pro' 모델을 사용합니다.
     model_name='gemini-2.5-flash',
     generation_config=generation_config
 )
 
-QUESTIONS_PER_GROUP = 5
+# 각 주제 그룹당 생성할 질문의 수를 정의합니다.
+QUESTIONS_PER_GROUP = 10
 
+# 스크립트 파일의 현재 디렉터리를 기준으로 입출력 파일 경로를 설정합니다.
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_CSV_PATH = os.path.join(SCRIPT_DIR, '..', 'data', '학습컨텐츠데이터-종합 (1).csv')
 OUTPUT_CSV_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'cs_questions.csv')
 
+# 필터링할 키워드를 정의합니다. 이 키워드가 포함된 title은 건너뜁니다.
 FILTER_KEYWORDS = ["참고 자료", "주요 질문", "정리", "란?"]
 
+# Gemini API에 전달할 프롬프트 템플릿입니다.
 PROMPT_TEMPLATE = """
 당신은 IT 기업의 숙련된 기술 면접관입니다. 당신의 임무는 주어진 주제 그룹을 대표하는 깊이 있는 기술 면접 질문을 생성하는 것입니다.
 
@@ -75,18 +83,30 @@ def load_and_group_data() -> Dict[str, List[Dict[str, str]]]:
         print(f"데이터 로드 중 오류 발생: {e}")
         return {}
 
+def load_existing_questions(file_path: str) -> Set[str]:
+    """
+    기존 CSV 파일에서 모든 질문을 읽어와 중복 검사를 위한 set으로 반환합니다.
+    """
+    existing_questions = set()
+    try:
+        with open(file_path, mode='r', encoding='utf-8') as infile:
+            # 첫 줄(헤더) 건너뛰기
+            next(infile) 
+            reader = csv.reader(infile)
+            for row in reader:
+                if len(row) > 1: # 행에 데이터가 있는지 확인
+                    existing_questions.add(row[1].strip())
+        print(f"기존 질문 {len(existing_questions)}개를 로드했습니다. 중복 검사에 사용됩니다.")
+    except FileNotFoundError:
+        print("기존 질문 파일이 없어 새로 생성합니다.")
+    return existing_questions
 
 def generate_questions_for_group(topics: List[Dict[str, str]], num_questions: int) -> str:
     """
     한 그룹의 토픽 데이터를 받아 Gemini API를 호출하고 마크다운 응답을 반환합니다.
     """
     topic_titles = "\n".join([f"- {topic['title']}" for topic in topics])
-
-    prompt = PROMPT_TEMPLATE.format(
-        num_questions=num_questions,
-        topic_titles=topic_titles
-    )
-
+    prompt = PROMPT_TEMPLATE.format(num_questions=num_questions, topic_titles=topic_titles)
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -94,24 +114,31 @@ def generate_questions_for_group(topics: List[Dict[str, str]], num_questions: in
         print(f"\nGemini API 호출 중 오류 발생: {e}")
         return ""
 
-
 def parse_and_save_questions(
     writer: Any,
     markdown_text: str,
-    category: str
-) -> int:
+    category: str,
+    existing_questions: Set[str]
+) -> tuple[int, int]:
     """
-    번호 매기기 마크다운 텍스트를 파싱하여 CSV 파일에 저장하고, 저장된 질문 수를 반환합니다.
+    마크다운 텍스트를 파싱하고, 중복을 검사한 뒤 CSV에 저장합니다.
+    저장된 질문 수와 중복으로 건너뛴 질문 수를 반환합니다.
     """
-    count = 0
+    saved_count = 0
+    skipped_count = 0
     questions = re.findall(r"^\s*\d+\.\s*(.*)", markdown_text, re.MULTILINE)
 
-    for question in questions:
-        if question:
-            writer.writerow([category, question.strip()])
-            count += 1
-    return count
-
+    for question_text in questions:
+        question = question_text.strip()
+        # 질문이 비어있지 않고, 기존 질문 set에 없는 경우에만 저장
+        if question and question not in existing_questions:
+            writer.writerow([category, question])
+            existing_questions.add(question) # 현재 실행 중 중복을 막기 위해 set에 추가
+            saved_count += 1
+        elif question:
+            skipped_count += 1
+            
+    return saved_count, skipped_count
 
 def main():
     """
@@ -122,49 +149,73 @@ def main():
     print(f"그룹당 생성 목표 질문 수: {QUESTIONS_PER_GROUP}")
     print("=" * 50)
 
+    # 1. 기존에 생성된 질문들을 set으로 로드
+    existing_questions_set = load_existing_questions(OUTPUT_CSV_PATH)
+    
+    # 2. 새로운 질문을 생성할 기반 데이터 로드
     grouped_data = load_and_group_data()
     if not grouped_data:
         print("처리할 데이터가 없습니다. 스크립트를 종료합니다.")
         return
 
-    total_questions_generated = 0
+    total_newly_added = 0
+    total_skipped = 0
+    api_call_count = 0
 
-    try:
-        with open(OUTPUT_CSV_PATH, 'w', newline='', encoding='utf-8') as f_out:
-            writer = csv.writer(f_out)
-            writer.writerow(['category', 'question'])
-    except IOError as e:
-        print(f"오류: 출력 파일 '{OUTPUT_CSV_PATH}'을(를) 열 수 없습니다. {e}")
-        return
-
+    # 3. 출력 파일이 없는 경우, 헤더를 미리 작성
+    output_file_exists = os.path.exists(OUTPUT_CSV_PATH)
+    if not output_file_exists:
+        try:
+            with open(OUTPUT_CSV_PATH, 'w', newline='', encoding='utf-8') as f_out:
+                writer = csv.writer(f_out)
+                writer.writerow(['category', 'question'])
+        except IOError as e:
+            print(f"오류: 출력 파일 '{OUTPUT_CSV_PATH}'을(를) 생성할 수 없습니다. {e}")
+            return
+    
     print("\n질문 생성을 시작합니다...")
-    for second_category, topics in tqdm(grouped_data.items(), desc="주제 그룹 처리 중"):
-        if not topics:
-            continue
-        first_category = topics[0]['first_category']
-
-        markdown_response = generate_questions_for_group(topics, QUESTIONS_PER_GROUP)
-
-        if not markdown_response:
-            tqdm.write(f"'{second_category}' 그룹에 대한 질문 생성에 실패했습니다. (API 응답 없음)")
-            continue
-
+    # 4. 파일은 항상 추가 모드('a')로 열어 작업
+    try:
         with open(OUTPUT_CSV_PATH, 'a', newline='', encoding='utf-8') as f_out:
             writer = csv.writer(f_out)
-            count = parse_and_save_questions(writer, markdown_response, first_category)
-            if count > 0:
-                total_questions_generated += count
-            else:
-                tqdm.write(f"경고: '{second_category}' 그룹에 대해 파싱할 수 있는 질문이 없습니다.")
+            
+            for second_category, topics in tqdm(grouped_data.items(), desc="주제 그룹 처리 중"):
+                if not topics:
+                    continue
+                
+                api_call_count += 1
+                first_category = topics[0]['first_category']
+                markdown_response = generate_questions_for_group(topics, QUESTIONS_PER_GROUP)
 
-        time.sleep(1)
+                if not markdown_response:
+                    tqdm.write(f"'{second_category}' 그룹에 대한 질문 생성에 실패했습니다. (API 응답 없음)")
+                    continue
+                
+                # 중복 검사 및 저장을 수행하는 함수 호출
+                saved, skipped = parse_and_save_questions(
+                    writer, markdown_response, first_category, existing_questions_set
+                )
+                
+                if saved > 0:
+                    total_newly_added += saved
+                if skipped > 0:
+                    total_skipped += skipped
+                    tqdm.write(f"'{second_category}' 그룹에서 중복 질문 {skipped}개를 건너뛰었습니다.")
+
+                time.sleep(1) # API 과호출 방지
+
+    except IOError as e:
+        print(f"오류: 출력 파일 '{OUTPUT_CSV_PATH}'에 쓰는 중 문제가 발생했습니다. {e}")
+        return
 
     print("\n" + "=" * 50)
     print("질문 생성이 완료되었습니다!")
-    print(f"총 생성된 질문 수: {total_questions_generated}")
+    print(f"총 API 호출 횟수: {api_call_count}")
+    print(f"새롭게 추가된 질문 수: {total_newly_added}")
+    print(f"중복으로 인해 건너뛴 질문 수: {total_skipped}")
+    print(f"현재 총 질문 수: {len(existing_questions_set)}")
     print(f"결과가 '{OUTPUT_CSV_PATH}' 파일에 저장되었습니다.")
     print("=" * 50)
-
 
 if __name__ == "__main__":
     main()

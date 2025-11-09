@@ -1,5 +1,5 @@
 import google.generativeai as genai
-from core.config import GEMINI_API_KEY
+from core.config import GEMINI_API_KEY, TAIL_QUESTION_MODEL, EVALUATION_MODEL
 from models.interview_models import Message
 from typing import List, Dict, Any
 import json
@@ -8,10 +8,19 @@ import re
 genai.configure(api_key=GEMINI_API_KEY)
 
 generation_config = {"temperature": 0.7}
-model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
+
+# 꼬리 질문 생성을 위한 모델 인스턴스
+tail_question_model = genai.GenerativeModel(
+    model_name=TAIL_QUESTION_MODEL,
     generation_config=generation_config
 )
+
+# 최종 평가를 위한 모델 인스턴스
+evaluation_model = genai.GenerativeModel(
+    model_name=EVALUATION_MODEL,
+    generation_config=generation_config
+)
+
 
 def generate_tail_question(conversation: List[Message]) -> str:
     """
@@ -27,7 +36,8 @@ def generate_tail_question(conversation: List[Message]) -> str:
     {chat_history}
     """.format(chat_history="\n".join([f"{msg.role}: {msg.content}" for msg in conversation]))
 
-    response = model.generate_content(prompt)
+    # 꼬리 질문용 모델 사용
+    response = tail_question_model.generate_content(prompt)
     
     return response.text.strip()
 
@@ -94,9 +104,10 @@ def evaluate_conversation(conversation: List[Message]) -> Dict[str, Any]:
 
     ### 점수
     (100점 만점 기준의 점수를 다른 설명 없이 숫자로만 표시. 예: 85.5)
-    """.format(chat_history="\n".join([f"{msg.role}: {msg.content}" for msg in conversation])) # 점수 기준만 100점으로 변경
+    """.format(chat_history="\n".join([f"{msg.role}: {msg.content}" for msg in conversation]))
 
-    response = model.generate_content(prompt)
+    # 최종 평가용 모델 사용
+    response = evaluation_model.generate_content(prompt)
     markdown_response = response.text.strip()
     
     return _parse_evaluation_markdown(markdown_response)
