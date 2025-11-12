@@ -3,7 +3,7 @@
 import google.generativeai as genai
 from core.config import GEMINI_API_KEY, TAIL_QUESTION_MODEL, EVALUATION_MODEL
 from models.interview_models import Message, StructuredEvaluationReport, TurnEvaluation
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 import json
 import re
 import time
@@ -17,7 +17,7 @@ evaluation_model = genai.GenerativeModel(model_name=EVALUATION_MODEL, generation
 md_parser = MarkdownIt()
 
 # --- 비동기 성능 측정 헬퍼 함수 ---
-async def _generate_content_with_performance_metrics(model, prompt: str) -> (str, Dict[str, Any]):
+async def _generate_content_with_performance_metrics(model, prompt: str) -> Tuple[str, Dict[str, Any]]:
     """
     비동기 스트리밍 API 호출을 통해 응답을 생성하고, TTFT와 TPS와 같은 성능 지표를 측정합니다.
     """
