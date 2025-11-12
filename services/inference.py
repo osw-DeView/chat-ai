@@ -1,8 +1,9 @@
 import re
 import logging
-from llama_cpp import Llama
+import httpx
 from typing import List, Dict
 from markdown_it import MarkdownIt
+
 from core import config
 from models.interview_models import Message, StructuredEvaluationReport, TurnEvaluation
 
@@ -10,41 +11,41 @@ logger = logging.getLogger("uvicorn")
 
 class InterviewModel:
     def __init__(self):
-        self.model = None
+        self.api_base = "http://localhost:8000/v1"
+        self.client = httpx.AsyncClient(base_url=self.api_base, timeout=900.0)
         self.md_parser = MarkdownIt()
-
-    def load_gguf_model(self):
-        logger.info(f"'{config.GGUF_MODEL_PATH}' GGUF 모델 로드를 시작합니다...")
-        try:
-            gpu_layers_to_offload = 25 # <<< 사용자의 GPU에 맞게 이 숫자를 수정 필요
-            self.model = Llama(
-                model_path=config.GGUF_MODEL_PATH, n_ctx=2048,
-                n_gpu_layers=gpu_layers_to_offload, n_batch=512, verbose=True,
-            )
-            logger.info("✅ GGUF 모델 로드 및 GPU 오프로딩 완료.")
-        except Exception as e:
-            logger.error(f"GGUF 모델 로드 중 심각한 오류 발생: {e}")
-            raise e
 
     def _strip_markdown(self, text: str) -> str:
         html = self.md_parser.render(text)
         plain_text = re.sub('<[^<]+?>', '', html)
         return re.sub(r'\n{2,}', '\n', plain_text).strip()
 
-    def generate_response(self, messages: List[Dict], strip_markdown: bool = False) -> str:
-        if not self.model: raise RuntimeError("모델이 로드되지 않았습니다.")
-        
+    async def generate_response(self, messages: List[Dict], strip_markdown: bool = False) -> str:
         processed_messages = [msg.dict() if isinstance(msg, Message) else msg for msg in messages]
-        
-        output = self.model.create_chat_completion(
-            messages=processed_messages,
-            temperature=config.GENERATION_CONFIG.get("temperature", 0.1),
-            top_p=config.GENERATION_CONFIG.get("top_p", 0.95),
-            max_tokens=config.GENERATION_CONFIG.get("max_new_tokens", 1024),
-        )
-        
-        raw_content = output['choices'][0]['message']['content']
-        
+
+        try:
+            response = await self.client.post(
+                "/chat/completions",
+                json={
+                    # [FIX] "model" 필드를 제거하여 서버의 전역 --chat-template 설정을 따르도록 함
+                    # "model": config.GGUF_MODEL_PATH, 
+                    "messages": processed_messages,
+                    "temperature": config.GENERATION_CONFIG.get("temperature", 0.1),
+                    "top_p": config.GENERATION_CONFIG.get("top_p", 0.95),
+                    "max_tokens": config.GENERATION_CONFIG.get("max_new_tokens", 1024),
+                },
+            )
+            response.raise_for_status()
+            output = response.json()
+            raw_content = output['choices'][0]['message']['content']
+
+        except httpx.RequestError as e:
+            logger.error(f"LLM 추론 서버({self.api_base}) 요청 실패: {e}")
+            raise RuntimeError("LLM 추론 서버에 연결할 수 없습니다. './server'가 실행 중인지 확인하세요.")
+        except Exception as e:
+            logger.error(f"API 응답 처리 중 오류 발생: {e}", exc_info=True)
+            raise
+
         eval_start_index = raw_content.find("# 최종 종합 평가")
         if eval_start_index != -1:
             raw_content = raw_content[eval_start_index:]
@@ -64,13 +65,14 @@ class InterviewModel:
             score_match = re.search(r"\*\*- 종합 점수:\*\*\s*(\d+)", overall_text)
             feedback_match = re.search(r"\*\*- 종합 (?:평가|피드백):\*\*\s*(.*?)(?=\n\s*\*\*-|\Z)", overall_text, re.DOTALL)
             keywords_match = re.search(r"\*\*- 개선 키워드:\*\*(.*?)(?=\n\n---|\Z)", overall_text, re.DOTALL)
-            
+
             overall_score = int(score_match.group(1)) if score_match else 0
             overall_feedback = feedback_match.group(1).strip() if feedback_match else "종합 피드백을 찾을 수 없습니다."
-            
+
             keywords_text = keywords_match.group(1) if keywords_match else ""
+            
             processed_keywords = [
-                self._strip_markdown(line.strip('- ').strip()) 
+                self._strip_markdown(line.strip('- ').strip())
                 for line in keywords_text.strip().split('\n')
             ]
             improvement_keywords = [keyword for keyword in processed_keywords if keyword]

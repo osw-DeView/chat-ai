@@ -16,12 +16,6 @@ async def lifespan(app: FastAPI):
     FastAPI 애플리케이션의 시작과 종료 시점에 실행될 로직을 정의합니다.
     """
     logger.info("FastAPI 애플리케이션 시작...")
-    
-    interview_model.load_gguf_model()
-    
-    if interview_model.model is None:
-        logger.error("모델이 로드되지 않았습니다! 서버를 시작할 수 없습니다.")
-    
     yield
     
     logger.info("FastAPI 애플리케이션 종료.")

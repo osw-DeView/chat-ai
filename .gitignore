@@ -16,3 +16,4 @@ __pycache__/
 guide/
 
 *.gguf
+llama.cpp/

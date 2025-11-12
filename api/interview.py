@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.concurrency import run_in_threadpool
 import logging
 
 from models.interview_models import (
@@ -22,7 +21,6 @@ logger = logging.getLogger("uvicorn")
 async def start_interview(request: InterviewStartRequest):
     """
     면접 유형(e.g., "CS")을 받아, 사전에 로드된 질문 목록에서 무작위로 초기 질문을 반환합니다.
-    (이 함수는 매우 빨라서 스레드풀을 사용할 필요가 없습니다.)
     """
     try:
         question = get_random_question()
@@ -42,8 +40,8 @@ async def get_next_question(request: InterviewNextRequest):
         dialogue_messages = [msg.dict() for msg in request.messages]
         messages_for_model = [system_message] + dialogue_messages
         
-        response_text = await run_in_threadpool(
-            interview_model.generate_response, 
+        # [FIX] 'await' 키워드 추가
+        response_text = await interview_model.generate_response(
             messages=messages_for_model, 
             strip_markdown=True
         )
@@ -61,15 +59,15 @@ async def get_evaluation(request: InterviewEvaluationRequest):
     try:
         eval_prompt_messages = interview_model.format_for_evaluation(request.conversation)
         
-        report_text = await run_in_threadpool(
-            interview_model.generate_response, 
+        # [FIX] 'await' 키워드 추가
+        report_text = await interview_model.generate_response(
             messages=eval_prompt_messages
         )
         
         logger.info("\n--- LLM Raw Evaluation Report ---\n%s\n---------------------------------\n", report_text)
         
-        structured_report = await run_in_threadpool(
-            interview_model.parse_evaluation_report, 
+        # parse_evaluation_report는 동기 함수이므로 await가 필요 없습니다.
+        structured_report = interview_model.parse_evaluation_report(
             report_text=report_text
         )
         return InterviewEvaluationResponse(evaluation_report=structured_report)
