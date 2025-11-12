@@ -32,6 +32,22 @@
         .keywords { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .keyword { background-color: #4a4e58; padding: 5px 10px; border-radius: 5px; font-size: 0.9em; }
         ul { padding-left: 20px; }
+        .performance-metrics {
+            margin-top: 10px;
+            font-size: 0.8em;
+            color: #aaa;
+            text-align: right;
+            border-top: 1px solid #555;
+            padding-top: 8px;
+        }
+        /* [신규 추가] 질문별 상세 평가 아이템 스타일 */
+        .turn-evaluation-item {
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #4a4e58;
+        }
     </style>
 </head>
 <body>
@@ -42,6 +58,7 @@
 
         const MAX_TURNS = 3; 
 
+        // 사용하시는 백엔드 서버 주소로 변경해주세요. (Gemini API 버전)
         const API_BASE_URL = 'http://localhost:8000';
 
         const MarkdownRenderer = ({ content }) => {
@@ -73,7 +90,7 @@
                         body: JSON.stringify({ interviewType: 'CS' })
                     });
                     const data = await response.json();
-                    setConversation([{ role: 'assistant', content: data.response }]);
+                    setConversation([{ role: 'assistant', content: data.response, performance: null }]);
                     setInterviewStarted(true);
                 } catch (error) {
                     console.error("Error starting interview:", error);
@@ -108,7 +125,7 @@
                         })
                     });
                     const data = await response.json();
-                    setConversation(prev => [...prev, { role: 'assistant', content: data.response }]);
+                    setConversation(prev => [...prev, { role: 'assistant', content: data.response, performance: data.performance }]);
                 } catch (error) {
                     console.error("Error getting next question:", error);
                     alert("다음 질문을 가져오는 데 실패했습니다.");
@@ -155,6 +172,12 @@
                                     {conversation.map((msg, index) => (
                                         <div key={index} className={`message ${msg.role}`}>
                                             <MarkdownRenderer content={msg.content} />
+                                            {msg.role === 'assistant' && msg.performance && (
+                                                <div className="performance-metrics">
+                                                    응답 시간: {msg.performance.total_generation_time_s}s | 
+                                                    속도: {msg.performance.tokens_per_second} t/s
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                     {isLoading && <div className="message assistant loading">답변을 생성 중입니다...</div>}
@@ -189,24 +212,40 @@
                                 )}
                             </React.Fragment>
                         ) : (
+                            // --- 👇 4단계 수정의 핵심 변경 사항 ---
                             <div className="evaluation-container">
                                 <h2>최종 면접 평가 결과</h2>
-                                <div className="score"><strong>종합 점수:</strong> {evaluationResult.score} / 100</div>
+                                {/*
+                                {evaluationResult.performance && (
+                                     <div className="performance-metrics" style={{textAlign: 'left', marginBottom: '15px'}}>
+                                         분석 시간: {evaluationResult.performance.total_generation_time_s}s | 
+                                         분석 속도: {evaluationResult.performance.tokens_per_second} t/s
+                                     </div>
+                                 )}
+                                */}
+                                {/* API 응답 구조 변경에 따라 데이터 접근 경로를 'evaluation_report' 하위로 수정 */}
+                                <div className="score"><strong>종합 점수:</strong> {evaluationResult.evaluation_report.overall_score} / 100</div>
+                                
                                 <h3>총평</h3>
-                                <MarkdownRenderer content={evaluationResult.overall_evaluation} />
-                                <h3>잘한 점</h3>
-                                <ul>
-                                    {evaluationResult.strengths.map((item, i) => <li key={i}><MarkdownRenderer content={item} /></li>)}
-                                </ul>
-                                <h3>보완할 점</h3>
-                                <ul>
-                                    {evaluationResult.weaknesses.map((item, i) => <li key={i}><MarkdownRenderer content={item} /></li>)}
-                                </ul>
-                                <h3>부족한 키워드</h3>
+                                <MarkdownRenderer content={evaluationResult.evaluation_report.overall_feedback} />
+                                
+                                {/* '부족한 키워드'를 '개선 키워드'로 명칭 변경 및 데이터 경로 수정 */}
+                                <h3>개선하면 좋은 키워드</h3>
                                 <div className="keywords">
-                                    {evaluationResult.missing_keywords.map((item, i) => <span key={i} className="keyword">{item}</span>)}
+                                    {evaluationResult.evaluation_report.improvement_keywords.map((item, i) => <span key={i} className="keyword">{item}</span>)}
                                 </div>
+                                
+                                {/* [신규 추가] '질문별 상세 평가' 섹션 렌더링 로직 */}
+                                <h3 style={{marginTop: '30px', borderTop: '1px solid #555', paddingTop: '20px'}}>질문별 상세 평가</h3>
+                                {evaluationResult.evaluation_report.turn_evaluations.map((turnEval, index) => (
+                                    <div key={index} className="turn-evaluation-item">
+                                        <h4>{turnEval.turn}번째 질문: "{turnEval.question}"</h4>
+                                        <p><strong>점수:</strong> {turnEval.score} / 100</p>
+                                        <div><strong>피드백:</strong> <MarkdownRenderer content={turnEval.feedback} /></div>
+                                    </div>
+                                ))}
                             </div>
+                             // --- 👆 수정 종료 ---
                         )}
                     </main>
                 </div>
