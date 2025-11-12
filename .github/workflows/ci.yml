@@ -41,12 +41,6 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       continue-on-error: true
 
-    - name: Check code formatting with black (optional)
-      run: |
-        pip install black
-        black --check .
-      continue-on-error: true
-
     - name: Run tests with pytest (if tests exist)
       run: |
         pip install pytest pytest-cov
