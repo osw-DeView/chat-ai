@@ -34,17 +34,12 @@ async def get_next_question(request: InterviewNextRequest):
     result = await generate_tail_question(request.conversation)
     return InterviewNextResponse(response=result['response'], performance=result['performance'])
 
-
-# --- 👇 3단계 수정의 핵심 변경 사항 ---
-
-# api/interview.py
 @router.post("/evaluation", response_model=InterviewEvaluationResponse)
 async def evaluate_interview(request: InterviewEvaluationRequest):
     """
     전체 대화 내용을 받아 Gemini API를 통해 구조화된 종합 평가를 비동기로 생성합니다.
     (성능 지표는 내부적으로만 계산되고 클라이언트에게는 반환되지 않습니다.)
     """
-    # 비동기 함수 호출이므로 await 추가
     evaluation_result = await evaluate_conversation(request.conversation)
     return InterviewEvaluationResponse(
         evaluation_report=evaluation_result['evaluation_report']

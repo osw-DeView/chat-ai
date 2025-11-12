@@ -36,3 +36,6 @@ config.local.json
 /.venv
 /venv
 명령어.txt
+
+data/학습컨텐츠데이터-종합 (1).csv
+scripts/

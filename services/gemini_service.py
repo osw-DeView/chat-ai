@@ -9,7 +9,6 @@ import re
 import time
 from markdown_it import MarkdownIt
 
-# --- 초기 설정 ---
 genai.configure(api_key=GEMINI_API_KEY)
 generation_config = {"temperature": 0.7}
 tail_question_model = genai.GenerativeModel(model_name=TAIL_QUESTION_MODEL, generation_config=generation_config)
@@ -60,7 +59,6 @@ async def _generate_content_with_performance_metrics(model, prompt: str) -> Tupl
     
     return full_response_text, performance
 
-# --- 마크다운 제거 헬퍼 함수 ---
 def _strip_markdown(text: str) -> str:
     """
     Markdown 텍스트를 렌더링한 후 HTML 태그를 제거하여 순수 텍스트만 반환합니다.
@@ -69,7 +67,6 @@ def _strip_markdown(text: str) -> str:
     plain_text = re.sub('<[^<]+?>', '', html)
     return re.sub(r'\n{2,}', '\n', plain_text).strip()
 
-# --- 꼬리질문 생성 함수 ---
 async def generate_tail_question(conversation: List[Message]) -> Dict[str, Any]:
     """
     이전 대화 내용을 바탕으로 다음 꼬리 질문을 비동기로 생성하고 성능을 측정합니다.
@@ -88,7 +85,6 @@ async def generate_tail_question(conversation: List[Message]) -> Dict[str, Any]:
     cleaned_response = _strip_markdown(response_text)
     return {"response": cleaned_response, "performance": performance}
 
-# --- 평가 프롬프트 생성 헬퍼 함수 ---
 def _format_for_evaluation(conversation: List[Message]) -> str:
     """
     대화 기록을 기반으로 Gemini 모델에 전달할 최종 평가 지시 프롬프트를 생성합니다.
@@ -135,7 +131,6 @@ def _format_for_evaluation(conversation: List[Message]) -> str:
     **- 피드백:** (세 번째 답변에 대한 구체적인 피드백)
     """
 
-# --- 평가 결과 파싱 헬퍼 함수 ---
 def _parse_structured_evaluation_report(report_text: str) -> StructuredEvaluationReport:
     """
     Gemini가 생성한 마크다운 형식의 평가 텍스트를 파싱하여 StructuredEvaluationReport 객체로 변환합니다.
@@ -182,7 +177,6 @@ def _parse_structured_evaluation_report(report_text: str) -> StructuredEvaluatio
             turn_evaluations=[]
         )
 
-# --- 종합 평가 함수 ---
 async def evaluate_conversation(conversation: List[Message]) -> Dict[str, Any]:
     """
     전체 대화 내용을 바탕으로 면접을 비동기로 평가하고, 성능을 측정한 뒤 구조화된 딕셔너리로 반환합니다.
@@ -190,9 +184,7 @@ async def evaluate_conversation(conversation: List[Message]) -> Dict[str, Any]:
     prompt = _format_for_evaluation(conversation)
     markdown_response, performance = await _generate_content_with_performance_metrics(evaluation_model, prompt)
     structured_report = _parse_structured_evaluation_report(markdown_response.strip())
-    
-    # --- 👇 사용자님께서 제안하신 수정 사항 ---
-    # performance는 계산되지만, 최종 반환 딕셔너리에서는 제외됩니다.
+
     return {
         "evaluation_report": structured_report,
         # "performance": performance 

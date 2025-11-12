@@ -3,8 +3,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
-# --- 💡 Swagger UI 예시를 위한 데이터 정의 ---
-
 EXAMPLE_PERFORMANCE = {
     "time_to_first_token_ms": 150.52,
     "total_generation_time_s": 2.75,
@@ -54,8 +52,6 @@ EXAMPLE_STRUCTURED_REPORT = {
     "turn_evaluations": EXAMPLE_TURN_EVALUATION_LIST
 }
 
-# --- Pydantic 모델 정의 ---
-
 class PerformanceMetrics(BaseModel):
     time_to_first_token_ms: float = Field(..., example=150.52)
     total_generation_time_s: float = Field(..., example=2.75)
@@ -97,5 +93,4 @@ class StructuredEvaluationReport(BaseModel):
 
 class InterviewEvaluationResponse(BaseModel):
     evaluation_report: StructuredEvaluationReport = Field(..., example=EXAMPLE_STRUCTURED_REPORT)
-    # performance 필드를 주석 처리하여 API 응답에 포함되지 않도록 합니다.
     # performance: PerformanceMetrics = Field(..., example=EXAMPLE_PERFORMANCE)
