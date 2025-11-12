@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from api import interview
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 
 app = FastAPI(
     title="CS Interview Assistant API",
@@ -20,6 +20,9 @@ app.add_middleware(
 
 app.include_router(interview.router)
 
-@app.get("/")
-async def read_index():
-    return FileResponse('index.html')
+@app.get("/", include_in_schema=False)
+async def root_redirect():
+    """
+    루트 경로 접속 시 API 문서(/docs)로 리디렉션합니다.
+    """
+    return RedirectResponse(url="/docs")
