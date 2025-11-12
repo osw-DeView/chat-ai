@@ -16,18 +16,11 @@ class InterviewModel:
     def __init__(self):
         self.model = None
         self.md_parser = MarkdownIt()
-        # lifespan에서 모델을 로드하므로 __init__에서는 호출하지 않습니다.
 
     def load_gguf_model(self):
         logger.info(f"'{config.GGUF_MODEL_PATH}' GGUF 모델 로드를 시작합니다...")
         try:
-            # --------------------------------------------------------------------------
-            # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ GPU 사양에 맞춰 이 값을 조절하세요 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-            # --------------------------------------------------------------------------
-            gpu_layers_to_offload = 25 # <<< 사용자의 GPU에 맞게 이 숫자를 수정하세요!
-            # --------------------------------------------------------------------------
-            # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-            # --------------------------------------------------------------------------
+            gpu_layers_to_offload = 25 # <<< 사용자의 GPU에 맞게 이 숫자를 수정 필요
             self.model = Llama(
                 model_path=config.GGUF_MODEL_PATH, n_ctx=2048,
                 n_gpu_layers=gpu_layers_to_offload, n_batch=512, verbose=True,
@@ -56,14 +49,10 @@ class InterviewModel:
         
         raw_content = output['choices'][0]['message']['content']
         
-        # [수정] 모델의 출력에서 '# 최종 종합 평가' 부분을 찾아 그 부분부터 사용하도록 처리
-        # 이렇게 하면 평가 이전에 나오는 <think> 태그나 다른 불필요한 텍스트를 자연스럽게 제거할 수 있습니다.
         eval_start_index = raw_content.find("# 최종 종합 평가")
         if eval_start_index != -1:
             raw_content = raw_content[eval_start_index:]
 
-        # [수정] 모델이 결과 생성 후 추가적인 생각을 출력하는 경우를 대비해 <think> 또는 </think>를 기준으로 잘라냅니다.
-        # 이렇게 하면 평가 마크다운 뒤에 따라오는 불필요한 텍스트를 제거할 수 있습니다.
         cleaned_content = raw_content.split("</think>")[0].split("<think>")[0].strip()
 
         if strip_markdown:
@@ -72,14 +61,11 @@ class InterviewModel:
 
     def parse_evaluation_report(self, report_text: str) -> StructuredEvaluationReport:
         try:
-            # 전체 텍스트를 '종합 평가' 부분과 '질문별 상세 평가' 부분으로 나눕니다.
             report_parts = re.split(r'\n## 질문별 상세 평가\n', report_text, 1)
             overall_text = report_parts[0]
             turns_text = report_parts[1] if len(report_parts) > 1 else ""
 
-            # 정규표현식을 사용하여 각 항목을 추출합니다.
             score_match = re.search(r"\*\*- 종합 점수:\*\*\s*(\d+)", overall_text)
-            # [수정] 종합 피드백이 다음 항목을 침범하지 않도록 비탐욕적(non-greedy) 패턴 `(.*?)` 사용
             feedback_match = re.search(r"\*\*- 종합 (?:평가|피드백):\*\*\s*(.*?)(?=\n\s*\*\*-|\Z)", overall_text, re.DOTALL)
             keywords_match = re.search(r"\*\*- 개선 키워드:\*\*(.*?)(?=\n\n---|\Z)", overall_text, re.DOTALL)
             
@@ -87,7 +73,6 @@ class InterviewModel:
             overall_feedback = feedback_match.group(1).strip() if feedback_match else "종합 피드백을 찾을 수 없습니다."
             
             keywords_text = keywords_match.group(1) if keywords_match else ""
-            # [수정] improvement_keywords가 비어있는 라인을 포함하지 않도록 필터링 강화
             improvement_keywords = [
                 self._strip_markdown(line.strip('- ').strip()) 
                 for line in keywords_text.strip().split('\n') if line.strip() and line.strip() != '-'
@@ -95,12 +80,10 @@ class InterviewModel:
 
             turn_evaluations = []
             if turns_text:
-                # '질문별 상세 평가' 부분을 각 턴별로 나눕니다.
                 turn_sections = re.split(r"### 턴 \d+:", turns_text)[1:]
                 for i, section in enumerate(turn_sections, 1):
                     question_match = re.search(r"(.*?)\n\s*\*\*- 점수:", section, re.DOTALL)
                     turn_score_match = re.search(r"\*\*- 점수:\*\*\s*(\d+)", section)
-                    # [수정] 각 턴의 피드백이 다음 턴을 침범하지 않도록 비탐욕적(non-greedy) 패턴 `(.*?)`과 경계(`\n### 턴|\Z`) 추가
                     turn_feedback_match = re.search(r"\*\*- (?:평가|피드백):\*\*\s*(.*?)(?=\n### 턴|\Z)", section, re.DOTALL)
 
                     turn_evaluations.append(TurnEvaluation(
@@ -118,7 +101,6 @@ class InterviewModel:
             )
         except Exception as e:
             logger.error(f"평가 보고서 파싱 실패: {e}", exc_info=True)
-            # 파싱 실패 시, 프론트엔드 에러 방지를 위해 오류 메시지를 포함한 기본 객체 반환
             return StructuredEvaluationReport(
                 overall_score=0,
                 overall_feedback=f"리포트 파싱 중 오류가 발생했습니다. 모델이 생성한 원본 텍스트를 확인해주세요:\n\n{report_text}",
@@ -169,5 +151,4 @@ class InterviewModel:
             {"role": "user", "content": final_instruction}
         ]
 
-# FastAPI 앱 전체에서 공유할 싱글톤 인스턴스 생성
 interview_model = InterviewModel()

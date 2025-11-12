@@ -1,17 +1,11 @@
-# models/interview_models.py
-
 from pydantic import BaseModel, Field
 from typing import List
 
-# --- 💡 Swagger UI 예시를 위한 상세 데이터 정의 ---
-
-# /next (꼬리질문) 요청을 위한 대화 예시
 EXAMPLE_CONVERSATION_FOR_NEXT_QUESTION = [
     {"role": "assistant", "content": "운영체제에서 프로세스와 스레드의 가장 근본적인 차이는 무엇인가요?"},
     {"role": "user", "content": "프로세스는 독립된 메모리 공간을 할당받는 실행의 단위이고, 스레드는 프로세스 내에서 자원을 공유하며 실행되는 흐름의 단위입니다."}
 ]
 
-# /evaluation (최종 평가) 요청을 위한 전체 대화 예시
 EXAMPLE_CONVERSATION_FOR_EVALUATION = [
     {"role": "assistant", "content": "운영체제에서 프로세스와 스레드의 가장 근본적인 차이는 무엇인가요?"},
     {"role": "user", "content": "프로세스는 독립된 메모리 공간을 할당받는 실행의 단위이고, 스레드는 프로세스 내에서 자원을 공유하며 실행되는 흐름의 단위입니다."},
@@ -21,7 +15,6 @@ EXAMPLE_CONVERSATION_FOR_EVALUATION = [
     {"role": "user", "content": "뮤텍스는 하나의 스레드만 임계 구역에 접근할 수 있도록 하는 잠금 메커니즘이고, 세마포어는 정해진 개수만큼의 스레드가 접근할 수 있도록 허용하는 계수기입니다. 따라서 화장실이 하나일 땐 뮤텍스, 여러 개일 땐 세마포어를 쓰는 것과 같습니다."}
 ]
 
-# /evaluation 응답 내부에 포함될 '질문별 상세 평가' 목록 예시
 EXAMPLE_TURN_EVALUATION_LIST = [
     {
         "turn": 1,
@@ -37,16 +30,12 @@ EXAMPLE_TURN_EVALUATION_LIST = [
     }
 ]
 
-# /evaluation 응답의 'evaluation_report' 필드 전체 예시
 EXAMPLE_STRUCTURED_REPORT = {
     "overall_score": 88,
     "overall_feedback": "전반적으로 운영체제의 프로세스 및 스레드 관련 기본 개념이 매우 탄탄합니다. 동기화 기법에 대한 심층적인 이해를 더한다면 훌륭한 개발자로 성장할 것입니다.",
     "improvement_keywords": ["임계 구역(Critical Section)", "스핀락(Spinlock)", "모니터(Monitor)"],
     "turn_evaluations": EXAMPLE_TURN_EVALUATION_LIST
 }
-
-
-# --- Pydantic 모델 정의 ---
 
 class Message(BaseModel):
     """대화 메시지 하나를 나타내는 모델"""
@@ -72,7 +61,6 @@ class InterviewNextResponse(BaseModel):
 
 class InterviewEvaluationRequest(BaseModel):
     """최종 평가 생성 API의 요청 모델"""
-    # [수정] 상세한 대화 예시를 추가하여 Swagger UI 가독성 향상
     conversation: List[Message] = Field(..., example=EXAMPLE_CONVERSATION_FOR_EVALUATION)
 
 class TurnEvaluation(BaseModel):
@@ -91,5 +79,4 @@ class StructuredEvaluationReport(BaseModel):
 
 class InterviewEvaluationResponse(BaseModel):
     """최종 평가 생성 API의 응답 모델"""
-    # [수정] 상세한 평가 보고서 예시를 추가하여 Swagger UI 가독성 향상
     evaluation_report: StructuredEvaluationReport = Field(..., example=EXAMPLE_STRUCTURED_REPORT)
