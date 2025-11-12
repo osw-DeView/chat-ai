@@ -2,8 +2,8 @@ from pydantic import BaseModel, Field
 from typing import List
 
 EXAMPLE_CONVERSATION_FOR_NEXT_QUESTION = [
-    {"role": "assistant", "content": "운영체제에서 프로세스와 스레드의 가장 근본적인 차이는 무엇인가요?"},
-    {"role": "user", "content": "프로세스는 독립된 메모리 공간을 할당받는 실행의 단위이고, 스레드는 프로세스 내에서 자원을 공유하며 실행되는 흐름의 단위입니다."}
+    {"role": "assistant", "content": "운영체제에서 프로세스와 스레드의 가장 근본적인 차이는 무엇이며, 이 차이가 시스템의 메모리 주소 공간 할당 및 자원 관리 측면에서 어떤 영향을 미치는지 구체적으로 설명해주세요."},
+    {"role": "user", "content": "프로세스는 독립된 메모리 공간을 할당받는 실행의 단위이고, 스레드는 프로세스 내에서 자원을 공유하며 실행되는 흐름의 단위입니다. 때문에 프로세스 간 통신(IPC)은 복잡하지만, 같은 프로세스 내의 스레드 간 통신은 메모리를 공유하므로 훨씬 간단하고 빠릅니다."}
 ]
 
 EXAMPLE_CONVERSATION_FOR_EVALUATION = [
@@ -27,12 +27,18 @@ EXAMPLE_TURN_EVALUATION_LIST = [
         "question": "스레드들이 자원을 공유하기 때문에 발생하는 잠재적인 문제점은 무엇이며, 이를 해결하기 위한 대표적인 방법들을 설명해주세요.",
         "score": 85,
         "feedback": "경쟁 상태(Race Condition)라는 핵심 문제와 뮤텍스, 세마포어라는 해결책을 정확히 제시했습니다. 동기화의 중요성을 잘 이해하고 있습니다."
+    },
+    {
+        "turn": 3,
+        "question": "뮤텍스와 세마포어의 근본적인 차이점은 무엇이며, 각각 어떤 상황에서 더 적합하게 사용될 수 있는지 설명해 주십시오.",
+        "score": 80,
+        "feedback": "뮤텍스와 세마포어의 차이를 '잠금'과 '계수기'로 잘 설명했으나, 실제 사용 사례나 소유권(ownership)과 같은 더 깊이 있는 차이점을 언급했다면 더 좋은 답변이 되었을 것입니다."
     }
 ]
 
 EXAMPLE_STRUCTURED_REPORT = {
-    "overall_score": 88,
-    "overall_feedback": "전반적으로 운영체제의 프로세스 및 스레드 관련 기본 개념이 매우 탄탄합니다. 동기화 기법에 대한 심층적인 이해를 더한다면 훌륭한 개발자로 성장할 것입니다.",
+    "overall_score": 85,
+    "overall_feedback": "전반적으로 운영체제의 프로세스 및 스레드 관련 기본 개념이 매우 탄탄합니다. 특히 각 개념의 정의와 장단점을 명확하게 인지하고 있습니다. 다만, 동기화 기법에 대한 심층적인 이해나 실제 적용 사례에 대한 고민이 더해진다면 한 단계 더 성장할 수 있을 것입니다.",
     "improvement_keywords": ["임계 구역(Critical Section)", "스핀락(Spinlock)", "모니터(Monitor)"],
     "turn_evaluations": EXAMPLE_TURN_EVALUATION_LIST
 }
