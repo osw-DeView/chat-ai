@@ -1,12 +1,8 @@
-# services/inference.py
-
 import re
 import logging
 from llama_cpp import Llama
 from typing import List, Dict
 from markdown_it import MarkdownIt
-
-# 로컬 모듈 임포트 (경로에 맞게 수정 필요)
 from core import config
 from models.interview_models import Message, StructuredEvaluationReport, TurnEvaluation
 
