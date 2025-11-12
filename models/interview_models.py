@@ -1,5 +1,3 @@
-# models/interview_models.py
-
 from pydantic import BaseModel, Field
 from typing import List, Literal
 
@@ -70,7 +68,7 @@ class InterviewStartResponse(BaseModel):
 
 class InterviewNextRequest(BaseModel):
     interviewType: str = Field(..., example="CS")
-    conversation: List[Message] = Field(..., example=EXAMPLE_CONVERSATION_FOR_NEXT_QUESTION)
+    messages: List[Message] = Field(..., example=EXAMPLE_CONVERSATION_FOR_NEXT_QUESTION)
 
 class InterviewNextResponse(BaseModel):
     response: str = Field(..., example="좋은 답변입니다. 그렇다면 스레드 간 동기화 문제를 해결하기 위한 구체적인 기법에는 어떤 것들이 있나요?")

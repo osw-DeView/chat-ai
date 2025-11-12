@@ -31,7 +31,7 @@ async def get_next_question(request: InterviewNextRequest):
     이전 대화 내용을 받아 Gemini API를 통해 다음 꼬리 질문을 비동기로 생성하고 성능을 반환합니다.
     """
     # 비동기 함수 호출이므로 await 추가
-    result = await generate_tail_question(request.conversation)
+    result = await generate_tail_question(request.messages)
     return InterviewNextResponse(response=result['response'], performance=result['performance'])
 
 @router.post("/evaluation", response_model=InterviewEvaluationResponse)
