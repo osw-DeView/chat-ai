@@ -1,5 +1,3 @@
-# api/interview.py
-
 from fastapi import APIRouter
 
 from models.interview_models import (
