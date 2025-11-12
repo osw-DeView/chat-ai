@@ -6,9 +6,6 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment variables
-.env
-
 # IDE specific folders
 .idea/
 .vscode/
@@ -30,7 +27,6 @@ __pycache__/
 Thumbs.db   # Windows
 
 # 4. 보안 및 환경 설정 파일
-.env
 config.local.json
 
 /.venv
