@@ -69,10 +69,11 @@ class InterviewModel:
             overall_feedback = feedback_match.group(1).strip() if feedback_match else "종합 피드백을 찾을 수 없습니다."
             
             keywords_text = keywords_match.group(1) if keywords_match else ""
-            improvement_keywords = [
+            processed_keywords = [
                 self._strip_markdown(line.strip('- ').strip()) 
-                for line in keywords_text.strip().split('\n') if line.strip() and line.strip() != '-'
+                for line in keywords_text.strip().split('\n')
             ]
+            improvement_keywords = [keyword for keyword in processed_keywords if keyword]
 
             turn_evaluations = []
             if turns_text:
