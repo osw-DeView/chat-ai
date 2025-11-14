@@ -1,0 +1,63 @@
+services:
+  # FastAPI 애플리케이션 서비스
+  api:
+    build:
+      context: .
+      dockerfile: api.Dockerfile
+    ports:
+      # 호스트의 8000번 포트를 api 컨테이너의 38001번 포트로 연결
+      - "8000:38001"
+    environment:
+      # llm-server 서비스의 주소를 환경 변수로 주입
+      # llm-server는 8001 포트를 사용
+      - LLM_API_BASE=http://llm-server:8001/v1
+    depends_on:
+      - llm-server
+    restart: always
+
+  # 직접 컴파일한 llama.cpp 서버 서비스
+  llm-server:
+    build:
+      context: .
+      dockerfile: llm-server.Dockerfile
+    ports:
+      # 호스트의 8001번 포트를 llm-server 컨테이너의 8001번 포트로 연결
+      - "8001:8001"
+    volumes:
+      # [사용자 선택] 실행하려는 모델 파일의 주석을 해제하세요.
+      # 모델 파일 이름은 컨테이너 내부에서 일관되게 'model.gguf'로 매핑됩니다.
+      # - ./qwen3-8b-cs-interviewer-merge-v1-150-Q4_K_M.gguf:/models/model.gguf
+      - ./Qwen3-4B-Deview-Finetune-v3-Q4_K_M.gguf:/models/model.gguf
+      # - ./Qwen3-8B-Deview-Finetune-v3-Q4_K_M.gguf:/models/model.gguf
+    
+    # [중요] GPU 사용을 위한 설정
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+              
+    # llm-server.Dockerfile의 ENTRYPOINT에 전달될 인자들입니다.
+    # 여기서 모델, 포트, GPU 레이어 등 서버 옵션을 자유롭게 수정할 수 있습니다.
+    command:
+      - "--model"
+      - "/models/model.gguf" # 볼륨 마운트에서 지정한 내부 파일명 사용
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8001" # 포트 충돌을 피하기 위해 8001 사용
+      # [사용자 선택] 사용하는 모델에 맞춰 n-gpu-layers 값을 조절하세요.
+      # - "--n-gpu-layers"
+      # - "25" # 8B 모델 예시
+      - "--n-gpu-layers"
+      - "32" # 4B 모델 예시
+      - "--parallel"
+      - "2"
+      - "--chat-template"
+      - "chatml"
+      - "--cont-batching" # 연속 배치 처리 활성화 (성능 향상)
+      - "-c"
+      - "5012"
+    restart: always
