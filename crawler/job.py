@@ -110,13 +110,13 @@ def crawl_interview_reviews(company_url: str) -> Dict:
     }
 
 
-# 기업 이름 -> URL 템플릿 매핑
+# 기업 이름 -> URL 매핑 (영어 키 사용)
 COMPANY_URL_MAP = {
-    "네이버": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=215&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
-    "카카오": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=924&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
-    "라인": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=5514&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
-    "쿠팡": "https://www.jobkorea.co.kr/starter/review/view?C_Idx=6021&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&schTxt=%EC%BF%A0%ED%8C%A1&G_ID=0&Page=1",
-    "배달의민족": "https://www.jobkorea.co.kr/starter/review/view?C_Idx=5801&Ctgr_Code=3&FavorCo_Stat=0&schTxt=%EB%B0%B0%EB%8B%AC&G_ID=0&Page=1"
+    "naver": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=215&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
+    "kakao": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=924&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
+    "line": "https://www.jobkorea.co.kr/starter/Review/view?C_Idx=5514&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&G_ID=0&Page=1",
+    "coupang": "https://www.jobkorea.co.kr/starter/review/view?C_Idx=6021&Half_Year_Type_Code=0&Ctgr_Code=3&FavorCo_Stat=0&schTxt=%EC%BF%A0%ED%8C%A1&G_ID=0&Page=1",
+    "baemin": "https://www.jobkorea.co.kr/starter/review/view?C_Idx=5801&Ctgr_Code=3&FavorCo_Stat=0&schTxt=%EB%B0%B0%EB%8B%AC&G_ID=0&Page=1"
 }
 
 

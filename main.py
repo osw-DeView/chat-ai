@@ -16,7 +16,7 @@ def get_interview_reviews(company_name: str):
     기업 이름으로 면접 후기를 크롤링하는 API
 
     Args:
-        company_name: 기업 이름 (네이버, 카카오, 라인, 쿠팡, 배달의민족)
+        company_name: 기업 이름 (naver, kakao, line, coupang, baemin)
 
     Returns:
         dict: 크롤링 결과
@@ -27,7 +27,7 @@ def get_interview_reviews(company_name: str):
     if not company_url:
         raise HTTPException(
             status_code=404,
-            detail=f"'{company_name}' 기업을 찾을 수 없습니다. 지원하는 기업: 네이버, 카카오, 라인, 쿠팡, 배달의민족"
+            detail=f"'{company_name}' 기업을 찾을 수 없습니다. 지원하는 기업: naver, kakao, line, coupang, baemin"
         )
 
     # 크롤링 실행
