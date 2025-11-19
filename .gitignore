@@ -6,9 +6,32 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment variables
-.env
-
 # IDE specific folders
 .idea/
 .vscode/
+
+# 1. 컴파일 및 빌드 결과물
+/build
+/dist
+*.pyc
+*.o
+*.class
+
+# 2. 로컬 개발 환경/IDE 설정 파일 (사용하는 IDE에 맞게 추가)
+.idea/      # IntelliJ IDE 폴더
+.vscode/    # VS Code 설정 폴더
+*.swp       # Vim 스왑 파일
+
+# 3. 운영체제에서 생성되는 파일
+.DS_Store   # macOS
+Thumbs.db   # Windows
+
+# 4. 보안 및 환경 설정 파일
+config.local.json
+
+/.venv
+/venv
+명령어.txt
+
+data/학습컨텐츠데이터-종합 (1).csv
+scripts/
