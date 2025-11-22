@@ -141,10 +141,12 @@ def _format_for_evaluation(conversation: List[Message]) -> str:
     
     1.  **명사형 기술 용어(Noun Phrases only):** 서술어(~함, ~설명, ~부족)를 절대 포함하지 마십시오.
     2.  **검색 가능성(Searchability):** 구글에 검색했을 때 위키백과나 기술 문서가 즉시 나올 수 있는 단어여야 합니다.
-    3.  **구체성:** 포괄적인 단어보다 구체적인 단어를 선택하십시오.
+    3.  **'지표(Metric)'나 '일반 명사'를 피하고, '알고리즘 이름'이나 '자료구조 명칭'을 우선 추출하십시오.**
+    4.  문장형이나 구(Phrase)가 아닌, CS 전공 서적의 '목차'나 '색인(Index)'에 등장할 법한 표준 용어(Standard Terminology)로 변환하여 추출하시오.
+    5.  **구체성:** 포괄적인 단어보다 구체적인 단어를 선택하십시오.
         * (X) 나쁜 예: "데이터베이스 지식", "네트워크 이해 필요", "용어 실수", "설명 보완"
         * (O) 좋은 예: "Index Dive", "MVCC", "TCP/IP 4계층", "가상 메모리 페이징", "Restful API 설계"
-    4.  **분야별 매핑:** 지원자의 답변에서 부족했던 개념을 OS, Network, Database, Data Structure 관점에서 찾아내십시오.
+    6.  **분야별 매핑:** 지원자의 답변에서 부족했던 개념을 OS, Network, Database, Data Structure 관점에서 찾아내십시오.
 
     # [출력 형식] (마크다운)
     # 최종 종합 평가
@@ -246,11 +248,26 @@ def _parse_structured_evaluation_report(report_text: str) -> StructuredEvaluatio
 
 async def evaluate_conversation(conversation: List[Message]) -> Dict[str, Any]:
     """
-    전체 대화 내용을 바탕으로 면접을 비동기로 평가하고, 성능을 측정한 뒤 구조화된 딕셔너리로 반환합니다.
+    전체 대화 내용을 바탕으로 면접을 평가합니다.
+    LLM이 생성한 요약 질문 대신, 대화 기록(conversation)에 있는 '원본 질문'을 사용하여
+    리포트의 정확성을 보장합니다.
     """
     prompt = _format_for_evaluation(conversation)
     markdown_response, performance = await _generate_content_with_performance_metrics(evaluation_model, prompt)
+    
     structured_report = _parse_structured_evaluation_report(markdown_response.strip())
+
+    assistant_questions = [
+        msg.content 
+        for msg in conversation 
+        if msg.role == "assistant"
+    ]
+
+    for i, turn_eval in enumerate(structured_report.turn_evaluations):
+        # 인덱스 안전 장치 (혹시 모를 IndexError 방지)
+        if i < len(assistant_questions):
+            # LLM이 요약한 question을 버리고, 원본 텍스트로 덮어쓰기
+            turn_eval.question = assistant_questions[i]
 
     return {
         "evaluation_report": structured_report,
