@@ -1,6 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import time
 from typing import Dict, Optional
 
 def crawl_interview_reviews(company_url: str) -> Dict:
@@ -34,9 +33,6 @@ def crawl_interview_reviews(company_url: str) -> Dict:
             "company_name": None,
             "reviews": []
         }
-
-    # 서버 과부하 방지를 위한 지연
-    time.sleep(3)
 
     # HTML 파싱
     soup = BeautifulSoup(html_content, 'html.parser')
@@ -131,17 +127,3 @@ def get_company_url(company_name: str) -> Optional[str]:
         str: URL 템플릿 또는 None
     """
     return COMPANY_URL_MAP.get(company_name)
-
-
-# 직접 실행 시 테스트
-if __name__ == "__main__":
-    result = crawl_interview_reviews("924", 1)
-    print(f"회사명: {result['company_name']}")
-    print(f"총 {result['total_reviews']}개의 면접 후기")
-
-    for i, review in enumerate(result['reviews'][:2], 1):
-        print(f"\n=== 면접 후기 #{i} ===")
-        for q in review['questions'][:3]:
-            print(f"[{q['question']}]")
-            if 'answer' in q:
-                print(f"  > {q['answer'][:50]}...")
