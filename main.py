@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from crawler.job import crawl_interview_reviews, get_company_url
+from crawler.combined import crawl_all_reviews, get_combined_url
 from api import interview
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -30,29 +30,33 @@ async def root_redirect():
 @app.get("/api/interview-reviews")
 def get_interview_reviews(company_name: str):
     """
-    기업 이름으로 면접 후기를 크롤링하는 API
+    기업 이름으로 잡코리아와 사람인에서 면접 후기를 크롤링하는 API
 
     Args:
         company_name: 기업 이름 (naver, kakao, line, coupang, baemin)
 
     Returns:
-        dict: 크롤링 결과
+        dict: 통합 크롤링 결과
+            - company_name: 회사명
+            - reviews: 면접 후기 리스트 (잡코리아 먼저, 사람인 다음)
+            - total_reviews: 총 면접 후기 개수
+            - jobkorea_count: 잡코리아 후기 개수
+            - saramin_count: 사람인 후기 개수
     """
-    # 기업 이름으로 URL 찾기
-    company_url = get_company_url(company_name)
-
-    if not company_url:
+    # URL 확인
+    urls = get_combined_url(company_name)
+    if not urls:
         raise HTTPException(
             status_code=404,
             detail=f"'{company_name}' 기업을 찾을 수 없습니다. 지원하는 기업: naver, kakao, line, coupang, baemin"
         )
 
-    # 크롤링 실행
-    result = crawl_interview_reviews(company_url)
+    # 통합 크롤링 실행
+    result = crawl_all_reviews(company_name)
 
-    # 에러 처리
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
+    # 완전 실패 시 에러 처리 (두 사이트 모두 실패)
+    if result["total_reviews"] == 0 and "errors" in result:
+        raise HTTPException(status_code=500, detail=result["errors"])
 
     return result
 
