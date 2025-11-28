@@ -35,3 +35,5 @@ config.local.json
 
 data/학습컨텐츠데이터-종합 (1).csv
 scripts/
+
+.env
