@@ -75,6 +75,7 @@ class InterviewNextResponse(BaseModel):
     # performance: PerformanceMetrics = Field(..., example=EXAMPLE_PERFORMANCE)
 
 class InterviewEvaluationRequest(BaseModel):
+    interviewType: str = Field(..., example="Operating System")
     conversation: List[Message] = Field(..., example=EXAMPLE_CONVERSATION_FOR_EVALUATION)
 
 class TurnEvaluation(BaseModel):
@@ -90,5 +91,6 @@ class StructuredEvaluationReport(BaseModel):
     turn_evaluations: List[TurnEvaluation] = Field(..., example=EXAMPLE_TURN_EVALUATION_LIST)
 
 class InterviewEvaluationResponse(BaseModel):
+    interviewType: str = Field(..., example="Operating System")
     evaluation_report: StructuredEvaluationReport = Field(..., example=EXAMPLE_STRUCTURED_REPORT)
     # performance: PerformanceMetrics = Field(..., example=EXAMPLE_PERFORMANCE)

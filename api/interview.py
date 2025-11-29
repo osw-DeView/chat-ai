@@ -19,7 +19,7 @@ def start_interview(request: InterviewStartRequest): # async 제거
     """
     면접 유형(CS)을 받아 CSV 파일에서 읽어온 초기 질문 중 하나를 무작위로 반환합니다.
     """
-    question = get_random_question()
+    question = get_random_question(request.interviewType)
     return InterviewStartResponse(response=question)
 
 
@@ -40,5 +40,6 @@ async def evaluate_interview(request: InterviewEvaluationRequest):
     """
     evaluation_result = await evaluate_conversation(request.conversation)
     return InterviewEvaluationResponse(
+        interviewType=request.interviewType,
         evaluation_report=evaluation_result['evaluation_report']
     )
