@@ -87,7 +87,8 @@ async def generate_tail_question(conversation: List[Message]) -> Dict[str, Any]:
 
 def _format_for_evaluation(conversation: List[Message]) -> str:
     """
-    대화 기록을 기반으로 Gemini 모델에 전달할 최종 평가 지시 프롬프트를 생성합니다.
+    대화 기록을 기반으로 평가 프롬프트를 생성합니다.
+    (수정사항) 점수 산정의 객관성을 높이기 위해 '채점 기준표(Rubric)'를 프롬프트에 포함시켰습니다.
     """
     interview_record = ""
     dialogue = [msg for msg in conversation if msg.role in ["assistant", "user"]]
@@ -99,68 +100,135 @@ def _format_for_evaluation(conversation: List[Message]) -> str:
             turn += 1
 
     return f"""
-    당신은 지원자의 기술적 깊이를 평가하는 IT 전문 면접관입니다.
-    다음은 한 지원자와의 전체 CS 기술 면접 대화록입니다.
-    이 대화 내용을 바탕으로 지원자의 CS 지식을 평가하고, 아래 [출력 형식]을 '반드시' 준수하여 '한글로' 응답해 주세요.
+    당신은 구글, 아마존 수준의 기준을 가진 엄격한 'AI 기술 면접관'입니다.
+    당신은 매우 깐깐하고 비판적인 시니어 엔지니어입니다. 지원자의 답변이 완벽하지 않다면 80점 이상을 쉽게 주지 마십시오.
+    지원자의 답변을 분석하여 평가 리포트를 작성해야 합니다.
+    점수는 절대로 임의로 부여하지 말고, 아래 [채점 기준표]에 의거하여 엄정하게 산정하십시오.
 
+    # [채점 기준표 (Scoring Rubric)] - 총 100점 만점
+    각 답변에 대해 다음 4가지 항목을 합산하여 점수를 매기십시오.
+
+    1. **기술적 정확성 (40점 만점)**
+       - 40점: 오류 없이 완벽하게 정확함.
+       - 30점: 핵심은 맞으나 사소한 디테일 오류 존재.
+       - 10-20점: 치명적인 기술적 오개념(Misconception) 존재.
+       - 0점: 틀린 답변이거나 질문을 이해하지 못함.
+    
+    2. **지식의 깊이 (30점 만점)**
+       - 30점: 단순 정의를 넘어 내부 동작 원리(Mechanism)와 이유(Why)를 설명함.
+       - 20점: 정의와 특징 정도만 나열함.
+       - 10점: 표면적인 내용만 겉핥기 식으로 언급함.
+    
+    3. **전문 용어 구사력 (20점 만점)**
+       - 20점: 현업 엔지니어 수준으로 정확한 CS 용어(Entity)를 사용함.
+       - 10점: 일반적인 용어로 풀어서 설명함 (전문성 부족).
+       - 0점: 용어를 잘못 혼용하여 사용함.
+    
+    4. **논리성 및 태도 (10점 만점)**
+       - 10점: 두괄식으로 명확하고 간결하게 답변함.
+       - 5점: 답변이 장황하거나 핵심을 비껴감.
+
+    ---
     # [면접 기록]
     {interview_record}
     ---
     # [지시사항]
-    위 [면접 기록]을 바탕으로, 지원자에 대한 최종 종합 평가를 아래 [출력 형식]에 맞춰 마크다운으로 생성하십시오.
+    위 [채점 기준표]를 적용하여 각 턴의 점수를 계산하고, 이를 종합하여 아래 형식으로 출력하십시오.
+    
+    ## 중요: [개선 키워드] 추출 규칙 (검색 연동용)
+    이 키워드들은 버튼으로 만들어져, 클릭 시 **'구글 검색'이나 '기술 블로그'로 바로 연결**됩니다.
+    따라서 반드시 다음 조건을 만족해야 합니다:
+    
+    1.  **명사형 기술 용어(Noun Phrases only):** 서술어(~함, ~설명, ~부족)를 절대 포함하지 마십시오.
+    2.  **검색 가능성(Searchability):** 구글에 검색했을 때 위키백과나 기술 문서가 즉시 나올 수 있는 단어여야 합니다.
+    3.  **'지표(Metric)'나 '일반 명사'를 피하고, '알고리즘 이름'이나 '자료구조 명칭'을 우선 추출하십시오.**
+    4.  문장형이나 구(Phrase)가 아닌, CS 전공 서적의 '목차'나 '색인(Index)'에 등장할 법한 표준 용어(Standard Terminology)로 변환하여 추출하시오.
+    5.  **구체성:** 포괄적인 단어보다 구체적인 단어를 선택하십시오.
+        * (X) 나쁜 예: "데이터베이스 지식", "네트워크 이해 필요", "용어 실수", "설명 보완"
+        * (O) 좋은 예: "Index Dive", "MVCC", "TCP/IP 4계층", "가상 메모리 페이징", "Restful API 설계"
+    6.  **분야별 매핑:** 지원자의 답변에서 부족했던 개념을 OS, Network, Database, Data Structure 관점에서 찾아내십시오.
 
-    # [출력 형식]
+    # [출력 형식] (마크다운)
     # 최종 종합 평가
-    **- 종합 점수:** (1-100 사이의 정수 점수)
-    **- 종합 피드백:** (종합적인 강점과 약점을 2-3문장으로 요약)
+    **- 종합 점수:** (각 턴 점수의 평균, 정수형)
+    **- 종합 피드백:** (전반적인 강점과 약점을 2-3문장으로 요약)
     **- 개선 키워드:**
-        - (핵심 개선 키워드 1)
-        - (핵심 개선 키워드 2)
+        - (기술 명사 1)
+        - (기술 명사 2)
+        - (기술 명사 3)
     ---
     ## 질문별 상세 평가
-    ### 턴 1: (첫 번째 질문 내용 요약)
-    **- 점수:** (1-100 사이의 정수 점수)
-    **- 피드백:** (첫 번째 답변에 대한 구체적인 피드백)
+    ### 턴 1: (질문 요약)
+    **- 점수:** (위 기준표에 따른 합산 점수)
+    **- 피드백:** (어떤 항목에서 감점되었는지 구체적으로 언급. 예: "정확성은 좋았으나, 내부 원리 설명이 부족하여 '깊이' 항목에서 감점되었습니다.")
 
-    ### 턴 2: (두 번째 질문 내용 요약)
-    **- 점수:** (1-100 사이의 정수 점수)
-    **- 피드백:** (두 번째 답변에 대한 구체적인 피드백)
-
-    ### 턴 3: (세 번째 질문 내용 요약)
-    **- 점수:** (1-100 사이의 정수 점수)
-    **- 피드백:** (세 번째 답변에 대한 구체적인 피드백)
+    (이후 턴 계속...)
     """
 
 def _parse_structured_evaluation_report(report_text: str) -> StructuredEvaluationReport:
     """
-    Gemini가 생성한 마크다운 형식의 평가 텍스트를 파싱하여 StructuredEvaluationReport 객체로 변환합니다.
+    Gemini 응답을 파싱하여 구조화된 객체로 반환합니다.
+    검색 쿼리로 사용될 '키워드'의 데이터 위생(Data Hygiene)을 철저히 관리합니다.
     """
+    # 내부 헬퍼 함수: 텍스트 정제 (개행 제거 -> 공백 치환 -> 양쪽 공백 제거)
+    def clean_text(text: str) -> str:
+        if not text: return ""
+        # 1. 마크다운 태그 1차 제거
+        text = _strip_markdown(text)
+        # 2. 줄바꿈을 공백으로 치환 (JSON 에러 및 URL 인코딩 문제 방지)
+        text = text.replace('\n', ' ')
+        text = text.replace('\r', ' ')
+        # 3. 불필요한 특수문자 제거 (검색 쿼리에 방해되는 것들)
+        text = re.sub(r'[\[\]\"\'\`]', '', text)
+        return text.strip()
+
     try:
-        overall_text, turns_text = re.split(r'\n## 질문별 상세 평가\n', report_text, 1)
+        # 섹션 분리
+        parts = re.split(r'\n## 질문별 상세 평가', report_text, 1)
+        overall_text = parts[0]
+        turns_text = parts[1] if len(parts) > 1 else ""
 
+        # 종합 점수
         score_match = re.search(r"\*\*- 종합 점수:\*\*\s*(\d+)", overall_text)
-        feedback_match = re.search(r"\*\*- 종합 피드백:\*\*\s*(.*?)(?=\n\s*\*\*-|\Z)", overall_text, re.DOTALL)
-        keywords_match = re.search(r"\*\*- 개선 키워드:\*\*(.*?)(?=\n\n---|\Z)", overall_text, re.DOTALL)
-        
         overall_score = int(score_match.group(1)) if score_match else 0
-        overall_feedback = feedback_match.group(1).strip() if feedback_match else "종합 피드백을 찾을 수 없습니다."
         
-        keywords_text = keywords_match.group(1) if keywords_match else ""
-        improvement_keywords = [_strip_markdown(line.strip('- ').strip()) for line in keywords_text.strip().split('\n') if line.strip()]
+        # 종합 피드백
+        feedback_match = re.search(r"\*\*- 종합 피드백:\*\*\s*(.*?)(?=\n\s*\*\*-|\Z)", overall_text, re.DOTALL)
+        overall_feedback = clean_text(feedback_match.group(1)) if feedback_match else "피드백 생성 실패"
+        
+        # [핵심] 개선 키워드 파싱 로직 개선
+        keywords_match = re.search(r"\*\*- 개선 키워드:\*\*(.*?)(?=\n\n---|\Z|##)", overall_text, re.DOTALL)
+        improvement_keywords = []
+        
+        if keywords_match:
+            # 줄바꿈으로 분리
+            raw_lines = keywords_match.group(1).strip().split('\n')
+            for line in raw_lines:
+                # 리스트 마커(-, *, 1.) 제거
+                cleaned_line = re.sub(r'^[\d\.\-\*\s]+', '', line).strip()
+                
+                # 정제 후 유효성 검사
+                final_keyword = clean_text(cleaned_line)
+                
+                # 너무 긴 문장은 키워드가 아닐 확률이 높음 (예: 20글자 이상이면 의심해볼 만하나, 일단 허용)
+                if final_keyword and len(final_keyword) < 50: 
+                    improvement_keywords.append(final_keyword)
 
+        # 턴별 평가 파싱
         turn_evaluations = []
-        turn_sections = re.split(r"### 턴 \d+:", turns_text)[1:]
-        for i, section in enumerate(turn_sections, 1):
-            question_match = re.search(r"(.*?)\n\s*\*\*- 점수:", section, re.DOTALL)
-            turn_score_match = re.search(r"\*\*- 점수:\*\*\s*(\d+)", section)
-            turn_feedback_match = re.search(r"\*\*- 피드백:\*\*\s*(.*)", section, re.DOTALL)
+        if turns_text:
+            turn_sections = re.split(r"### 턴 \d+:", turns_text)[1:]
+            for i, section in enumerate(turn_sections, 1):
+                q_match = re.search(r"(.*?)\n\s*\*\*- 점수:", section, re.DOTALL)
+                s_match = re.search(r"\*\*- 점수:\*\*\s*(\d+)", section)
+                f_match = re.search(r"\*\*- 피드백:\*\*\s*(.*)", section, re.DOTALL)
 
-            turn_evaluations.append(TurnEvaluation(
-                turn=i,
-                question=_strip_markdown(question_match.group(1).strip() if question_match else "질문 없음"),
-                score=int(turn_score_match.group(1)) if turn_score_match else 0,
-                feedback=turn_feedback_match.group(1).strip() if turn_feedback_match else "피드백 없음"
-            ))
+                turn_evaluations.append(TurnEvaluation(
+                    turn=i,
+                    question=clean_text(q_match.group(1)) if q_match else "질문 없음",
+                    score=int(s_match.group(1)) if s_match else 0,
+                    feedback=clean_text(f_match.group(1)) if f_match else "피드백 없음"
+                ))
 
         return StructuredEvaluationReport(
             overall_score=overall_score,
@@ -168,22 +236,38 @@ def _parse_structured_evaluation_report(report_text: str) -> StructuredEvaluatio
             improvement_keywords=improvement_keywords,
             turn_evaluations=turn_evaluations
         )
+
     except Exception as e:
-        print(f"평가 보고서 파싱 실패: {e}\n원본 텍스트:\n{report_text}")
+        print(f"[System Error] 파싱 실패: {e}\nResponse Dump:\n{report_text}")
         return StructuredEvaluationReport(
             overall_score=0,
-            overall_feedback=f"리포트 파싱 중 오류가 발생했습니다. 모델이 생성한 원본 텍스트를 확인해주세요:\n\n{report_text}",
-            improvement_keywords=[],
+            overall_feedback="시스템 오류가 발생하여 리포트를 생성하지 못했습니다.",
+            improvement_keywords=["오류 발생", "재시도 요청"],
             turn_evaluations=[]
         )
 
 async def evaluate_conversation(conversation: List[Message]) -> Dict[str, Any]:
     """
-    전체 대화 내용을 바탕으로 면접을 비동기로 평가하고, 성능을 측정한 뒤 구조화된 딕셔너리로 반환합니다.
+    전체 대화 내용을 바탕으로 면접을 평가합니다.
+    LLM이 생성한 요약 질문 대신, 대화 기록(conversation)에 있는 '원본 질문'을 사용하여
+    리포트의 정확성을 보장합니다.
     """
     prompt = _format_for_evaluation(conversation)
     markdown_response, performance = await _generate_content_with_performance_metrics(evaluation_model, prompt)
+    
     structured_report = _parse_structured_evaluation_report(markdown_response.strip())
+
+    assistant_questions = [
+        msg.content 
+        for msg in conversation 
+        if msg.role == "assistant"
+    ]
+
+    for i, turn_eval in enumerate(structured_report.turn_evaluations):
+        # 인덱스 안전 장치 (혹시 모를 IndexError 방지)
+        if i < len(assistant_questions):
+            # LLM이 요약한 question을 버리고, 원본 텍스트로 덮어쓰기
+            turn_eval.question = assistant_questions[i]
 
     return {
         "evaluation_report": structured_report,
